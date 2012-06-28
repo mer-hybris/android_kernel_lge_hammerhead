@@ -1129,8 +1129,10 @@ void hid_report_raw_event(struct hid_device *hid, int type, u8 *data, int size,
 	if (hid->claimed & HID_CLAIMED_HIDRAW)
 		hidraw_report_event(hid, data, size);
 
-	for (a = 0; a < report->maxfield; a++)
-		hid_input_field(hid, report->field[a], cdata, interrupt);
+	if (hid->claimed != HID_CLAIMED_HIDRAW) {
+		for (a = 0; a < report->maxfield; a++)
+			hid_input_field(hid, report->field[a], cdata, interrupt);
+	}
 
 	if (hid->claimed & HID_CLAIMED_INPUT)
 		hidinput_report_event(hid, report);
@@ -1175,6 +1177,10 @@ int hid_input_report(struct hid_device *hid, int type, u8 *data, int size, int i
 		ret = -1;
 		goto unlock;
 	}
+
+	/* Avoid unnecessary overhead if debugfs is disabled */
+	if (list_empty(&hid->debug_list))
+		goto nomem;
 
 	buf = kmalloc(sizeof(char) * HID_DEBUG_BUFSIZE, GFP_ATOMIC);
 
